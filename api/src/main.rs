@@ -1,23 +1,21 @@
 mod config;
+mod modules;
+mod route;
 
-use axum::{Router, routing::get};
+use axum::Router;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
     let cfg = config::load().expect("failed to load config");
     init_tracing(&cfg.log_level);
-    serve(router(), cfg.port).await;
+    serve(route::router(), cfg.port).await;
 }
 
 fn init_tracing(log_level: &str) {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::new(log_level))
         .init();
-}
-
-fn router() -> Router {
-    Router::new().route("/", get(|| async { "Hello World!" }))
 }
 
 async fn serve(app: Router, port: u16) {

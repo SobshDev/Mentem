@@ -30,7 +30,7 @@ impl AuthService
         }
     }
 
-    pub async fn register(&self, _email: String, _password: String) -> Result<User, AuthError>
+    pub async fn register(&self, _email: &str, _password: &str) -> Result<User, AuthError>
     {
         todo!()
     }

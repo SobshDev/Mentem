@@ -1,4 +1,6 @@
-pub type UserId = String;
+use uuid::Uuid;
+
+pub type UserId = Uuid;
 
 #[derive(Debug, Clone)]
 pub struct User

@@ -2,7 +2,7 @@ use axum::Router;
 
 use crate::modules;
 
-pub fn router() -> Router
+pub fn build() -> Router
 {
     Router::new()
         .nest("/health", modules::health::router())

@@ -7,6 +7,7 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
+    modules::health::init();
     let cfg = config::load().expect("failed to load config");
     init_tracing(&cfg.log_level);
     serve(route::router(), cfg.port).await;

@@ -18,5 +18,10 @@ async fn serve(app: Router, port: u16)
         .expect("failed to bind");
 
     tracing::info!("listening on http://{addr}");
-    axum::serve(listener, app).await.expect("server error");
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .expect("server error");
 }

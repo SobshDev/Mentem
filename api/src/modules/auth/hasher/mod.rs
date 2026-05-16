@@ -1,4 +1,8 @@
+mod argon2;
+
 use super::error::AuthError;
+
+pub use argon2::Argon2Hasher;
 
 pub trait PasswordHasher: Send + Sync
 {

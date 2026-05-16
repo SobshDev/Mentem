@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::domain::{User, UserId};
+use super::domain::{NewUser, User, UserId};
 use super::error::AuthError;
 use super::hasher::PasswordHasher;
 use super::repository::UserRepository;
@@ -30,18 +30,37 @@ impl AuthService
         }
     }
 
-    pub async fn register(&self, _email: &str, _password: &str) -> Result<User, AuthError>
+    pub async fn register(&self, email: &str, password: &str) -> Result<User, AuthError>
     {
-        todo!()
+        let password_hash = self.hasher.hash(password)?;
+        self.users
+            .insert(NewUser {
+                email: email.to_string(),
+                password_hash,
+            })
+            .await
     }
 
-    pub async fn login(&self, _email: &str, _password: &str) -> Result<String, AuthError>
+    pub async fn login(&self, email: &str, password: &str) -> Result<String, AuthError>
     {
-        todo!()
+        let user = self
+            .users
+            .find_by_email(email)
+            .await?
+            .ok_or(AuthError::InvalidCredentials)?;
+
+        if !self.hasher.verify(password, &user.password_hash)? {
+            return Err(AuthError::InvalidCredentials);
+        }
+
+        self.tokens.issue(&user.id)
     }
 
-    pub async fn user(&self, _id: &UserId) -> Result<User, AuthError>
+    pub async fn user(&self, id: &UserId) -> Result<User, AuthError>
     {
-        todo!()
+        self.users
+            .find_by_id(id)
+            .await?
+            .ok_or(AuthError::UserNotFound)
     }
 }

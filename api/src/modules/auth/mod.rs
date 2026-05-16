@@ -9,10 +9,10 @@ use axum::Router;
 
 pub use domain::{NewUser, User, UserId};
 pub use error::AuthError;
-pub use hasher::PasswordHasher;
-pub use repository::UserRepository;
+pub use hasher::{Argon2Hasher, PasswordHasher};
+pub use repository::{PgUserRepository, UserRepository};
 pub use service::AuthService;
-pub use token::{TokenClaims, TokenService};
+pub use token::{JwtTokenService, TokenClaims, TokenService};
 
 pub fn router() -> Router
 {

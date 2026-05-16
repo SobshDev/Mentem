@@ -1,5 +1,9 @@
+mod jwt;
+
 use super::domain::UserId;
 use super::error::AuthError;
+
+pub use jwt::JwtTokenService;
 
 pub struct TokenClaims
 {

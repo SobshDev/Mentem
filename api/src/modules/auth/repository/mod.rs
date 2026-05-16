@@ -1,7 +1,11 @@
+mod pg;
+
 use async_trait::async_trait;
 
 use super::domain::{NewUser, User, UserId};
 use super::error::AuthError;
+
+pub use pg::PgUserRepository;
 
 #[async_trait]
 pub trait UserRepository: Send + Sync

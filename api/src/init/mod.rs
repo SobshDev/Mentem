@@ -1,7 +1,7 @@
 mod database;
 mod env;
-mod router;
 mod rate_limit;
+mod router;
 
 use axum::Router;
 use sqlx::PgPool;

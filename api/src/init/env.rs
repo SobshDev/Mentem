@@ -6,6 +6,7 @@ pub struct Config
     pub log_level: String,
     pub port: u16,
     pub database_url: String,
+    pub jwt_secret: String,
 }
 
 pub fn load() -> Result<Config, Box<dyn Error>>
@@ -16,5 +17,6 @@ pub fn load() -> Result<Config, Box<dyn Error>>
         log_level: env::var("LOG_LEVEL")?,
         port: env::var("PORT")?.parse()?,
         database_url: env::var("DATABASE_URL")?,
+        jwt_secret: env::var("JWT_SECRET")?,
     })
 }

@@ -157,10 +157,60 @@ impl LlmClient for AnthropicClient
 
     async fn stream_chat(
         &self,
-        _request: ChatRequest,
+        request: ChatRequest,
     ) -> Result<BoxStream<'static, Result<StreamEvent, AiError>>, AiError>
     {
-        todo!("Implement stream_chat")
+        let model = request.params.model.as_deref().unwrap_or(self.config.default_model());
+        let max_tokens = request.params.max_tokens.unwrap_or(self.config.default_max_tokens());
+        let temperature = request.params.temperature.unwrap_or(self.config.default_temperature());
+
+        let messages = self.convert_messages(&request.messages);
+        let _tools = self.convert_tools(&request.tools);
+
+        let mut msg_req = anthropic::types::MessagesRequest::default();
+        msg_req.model = model.to_string();
+        msg_req.messages = messages;
+        msg_req.max_tokens = max_tokens as usize;
+        msg_req.temperature = Some(temperature as f64);
+        msg_req.stream = true;
+
+        let stream = self.client.messages_stream(msg_req)
+            .await
+            .map_err(|e| self.map_anthropic_error(e))?;
+
+        use futures::StreamExt;
+
+        let boxed = Box::pin(stream.then(|event_result| async move {
+            match event_result {
+                Ok(event) => {
+                    match event {
+                        anthropic::types::MessagesStreamEvent::ContentBlockDelta { delta, .. } => {
+                            match delta {
+                                anthropic::types::ContentBlockDelta::TextDelta { text } => {
+                                    Ok(StreamEvent::TextDelta(text))
+                                }
+                            }
+                        }
+                        anthropic::types::MessagesStreamEvent::MessageStop => {
+                            Ok(StreamEvent::Done {
+                                stop_reason: crate::modules::ai::domain::StopReason::EndOfTurn,
+                                usage: crate::modules::ai::domain::Usage {
+                                    input_tokens: 0,
+                                    output_tokens: 0,
+                                },
+                            })
+                        }
+                        _ => Ok(StreamEvent::TextDelta(String::new())),
+                    }
+                }
+                Err(e) => Err(AiError::Internal(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e.to_string(),
+                )))),
+            }
+        }));
+
+        Ok(boxed)
     }
 }
 

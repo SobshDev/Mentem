@@ -65,4 +65,18 @@ impl PasswordHasher for Argon2Hasher
         .await
         .map_err(|e| AuthError::Internal(Box::new(e)))?
     }
+
+    async fn dummy_hash(&self) -> Result<String, AuthError>
+    {
+        let argon2 = self.argon2.clone();
+        task::spawn_blocking(move || {
+            let salt = SaltString::generate(&mut OsRng);
+            let hash = argon2
+                .hash_password(b"_dummy_", &salt)
+                .map_err(|e| AuthError::Internal(e.to_string().into()))?;
+            Ok(hash.to_string())
+        })
+        .await
+        .map_err(|e| AuthError::Internal(Box::new(e)))?
+    }
 }

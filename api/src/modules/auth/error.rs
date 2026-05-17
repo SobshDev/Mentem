@@ -1,6 +1,11 @@
 use std::error::Error;
 use std::fmt;
 
+use axum::Json;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use serde::Serialize;
+
 #[derive(Debug)]
 pub enum AuthError
 {
@@ -24,3 +29,26 @@ impl fmt::Display for AuthError
 }
 
 impl Error for AuthError {}
+
+#[derive(Serialize)]
+struct ErrorBody
+{
+    error: &'static str,
+}
+
+impl IntoResponse for AuthError
+{
+    fn into_response(self) -> Response
+    {
+        let (status, error) = match &self {
+            Self::UserNotFound => (StatusCode::NOT_FOUND, "user_not_found"),
+            Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "invalid_credentials"),
+            Self::EmailAlreadyExists => (StatusCode::CONFLICT, "email_already_exists"),
+            Self::Internal(e) => {
+                tracing::error!(error = %e, "internal auth error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
+            }
+        };
+        (status, Json(ErrorBody { error })).into_response()
+    }
+}

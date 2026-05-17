@@ -4,10 +4,9 @@ use super::domain::{NewUser, User, UserId};
 use super::error::AuthError;
 use super::hasher::PasswordHasher;
 use super::repository::UserRepository;
-use super::token::TokenService;
+use super::token::{TokenClaims, TokenService};
 
 #[derive(Clone)]
-#[allow(dead_code)]
 pub struct AuthService
 {
     users: Arc<dyn UserRepository>,
@@ -43,16 +42,18 @@ impl AuthService
 
     pub async fn login(&self, email: &str, password: &str) -> Result<String, AuthError>
     {
-        let user = self
-            .users
-            .find_by_email(email)
-            .await?
-            .ok_or(AuthError::InvalidCredentials)?;
+        let user_result = self.users.find_by_email(email).await?;
 
-        if !self.hasher.verify(password, &user.password_hash).await? {
+        let hash_to_verify = match &user_result {
+            Some(user) => user.password_hash.clone(),
+            None => self.hasher.dummy_hash().await?,
+        };
+
+        if !self.hasher.verify(password, &hash_to_verify).await? {
             return Err(AuthError::InvalidCredentials);
         }
 
+        let user = user_result.ok_or(AuthError::InvalidCredentials)?;
         self.tokens.issue(&user.id)
     }
 
@@ -62,5 +63,10 @@ impl AuthService
             .find_by_id(id)
             .await?
             .ok_or(AuthError::UserNotFound)
+    }
+
+    pub fn verify_token(&self, token: &str) -> Result<TokenClaims, AuthError>
+    {
+        self.tokens.verify(token)
     }
 }

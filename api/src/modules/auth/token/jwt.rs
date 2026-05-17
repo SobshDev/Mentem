@@ -4,9 +4,9 @@ use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, deco
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::{TokenClaims, TokenService};
 use crate::modules::auth::domain::UserId;
 use crate::modules::auth::error::AuthError;
-use crate::modules::auth::token::{TokenClaims, TokenService};
 
 const TTL: Duration = Duration::from_secs(60 * 60);
 
@@ -44,7 +44,7 @@ impl TokenService for JwtTokenService
     {
         let exp = (SystemTime::now() + self.ttl)
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| AuthError::Internal(e.to_string().into()))?
+            .map_err(|e| AuthError::Internal(Box::new(e)))?
             .as_secs() as i64;
 
         let claims = Claims {
@@ -53,7 +53,7 @@ impl TokenService for JwtTokenService
         };
 
         encode(&Header::new(Algorithm::HS256), &claims, &self.encoding_key)
-            .map_err(|e| AuthError::Internal(e.to_string().into()))
+            .map_err(|e| AuthError::Internal(Box::new(e)))
     }
 
     fn verify(&self, token: &str) -> Result<TokenClaims, AuthError>

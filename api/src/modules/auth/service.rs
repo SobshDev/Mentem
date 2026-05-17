@@ -32,7 +32,7 @@ impl AuthService
 
     pub async fn register(&self, email: &str, password: &str) -> Result<User, AuthError>
     {
-        let password_hash = self.hasher.hash(password)?;
+        let password_hash = self.hasher.hash(password).await?;
         self.users
             .insert(NewUser {
                 email: email.to_string(),
@@ -49,7 +49,7 @@ impl AuthService
             .await?
             .ok_or(AuthError::InvalidCredentials)?;
 
-        if !self.hasher.verify(password, &user.password_hash)? {
+        if !self.hasher.verify(password, &user.password_hash).await? {
             return Err(AuthError::InvalidCredentials);
         }
 

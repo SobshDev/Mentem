@@ -33,6 +33,36 @@ impl AnthropicClient {
 
         Ok(Self { client, config })
     }
+
+    fn map_anthropic_error(&self, error: anthropic::error::AnthropicError) -> AiError {
+        match error {
+            anthropic::error::AnthropicError::ApiError(api_error) => {
+                match api_error.r#type.as_str() {
+                    "insufficient_quota" => AiError::QuotaExceeded,
+                    "rate_limit_error" | "overloaded_error" => AiError::ProviderRateLimited,
+                    "authentication_error" | "unauthorized" => AiError::Unauthorized,
+                    "invalid_request_error" => {
+                        AiError::InvalidRequest(api_error.message)
+                    }
+                    _ => AiError::Internal(Box::new(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("API error ({}): {}", api_error.r#type, api_error.message),
+                        )
+                    )),
+                }
+            }
+            anthropic::error::AnthropicError::InvalidArgument(msg) => {
+                AiError::InvalidRequest(msg)
+            }
+            err => AiError::Internal(Box::new(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    err.to_string(),
+                )
+            )),
+        }
+    }
 }
 
 #[async_trait]

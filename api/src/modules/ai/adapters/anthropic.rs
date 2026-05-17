@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::fmt;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use anthropic::client::ClientBuilder;
@@ -10,6 +11,14 @@ use crate::modules::ai::ports::{LlmClient, ModelConfig};
 pub struct AnthropicClient {
     client: anthropic::client::Client,
     config: Arc<dyn ModelConfig>,
+}
+
+impl fmt::Debug for AnthropicClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AnthropicClient")
+            .field("config", &"<anthropic client>")
+            .finish()
+    }
 }
 
 impl AnthropicClient {
@@ -37,5 +46,57 @@ impl LlmClient for AnthropicClient {
         _request: ChatRequest,
     ) -> Result<BoxStream<'static, Result<StreamEvent, AiError>>, AiError> {
         todo!("Implement stream_chat")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockModelConfig;
+
+    impl crate::modules::ai::ports::ModelConfig for MockModelConfig {
+        fn default_model(&self) -> &str {
+            "claude-3-5-sonnet-20241022"
+        }
+        fn default_max_tokens(&self) -> u32 {
+            1024
+        }
+        fn default_temperature(&self) -> f32 {
+            0.7
+        }
+    }
+
+    #[test]
+    fn test_new_requires_api_key() {
+        // Temporarily unset the env var if it exists
+        let old_key = std::env::var("ANTHROPIC_API_KEY").ok();
+        unsafe {
+            std::env::remove_var("ANTHROPIC_API_KEY");
+        }
+
+        let config = Arc::new(MockModelConfig);
+        let result = AnthropicClient::new(config);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("ANTHROPIC_API_KEY"));
+
+        // Restore if it was set
+        if let Some(key) = old_key {
+            unsafe {
+                std::env::set_var("ANTHROPIC_API_KEY", key);
+            }
+        }
+    }
+
+    #[test]
+    fn test_new_succeeds_with_api_key() {
+        unsafe {
+            std::env::set_var("ANTHROPIC_API_KEY", "test-key-12345");
+        }
+        let config = Arc::new(MockModelConfig);
+        let result = AnthropicClient::new(config);
+        assert!(result.is_ok());
     }
 }

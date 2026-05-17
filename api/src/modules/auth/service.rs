@@ -27,7 +27,8 @@ impl AuthService
         }
     }
 
-    pub async fn register(&self, credentials: super::domain::Credentials) -> Result<User, AuthError>
+    pub async fn register(&self, credentials: super::domain::Credentials)
+    -> Result<User, AuthError>
     {
         let password_hash = self.hasher.hash(credentials.password.as_str()).await?;
         self.users
@@ -38,7 +39,8 @@ impl AuthService
             .await
     }
 
-    pub async fn login(&self, credentials: super::domain::Credentials) -> Result<String, AuthError>
+    pub async fn login(&self, credentials: super::domain::Credentials)
+    -> Result<String, AuthError>
     {
         let user_result = self.users.find_by_email(credentials.email.as_str()).await?;
 
@@ -47,7 +49,11 @@ impl AuthService
             None => self.hasher.dummy_hash().await?,
         };
 
-        if !self.hasher.verify(credentials.password.as_str(), &hash_to_verify).await? {
+        if !self
+            .hasher
+            .verify(credentials.password.as_str(), &hash_to_verify)
+            .await?
+        {
             return Err(AuthError::InvalidCredentials);
         }
 

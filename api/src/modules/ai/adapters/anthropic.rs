@@ -4,7 +4,7 @@ use futures::stream::BoxStream;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::modules::ai::domain::{ChatRequest, ChatResponse, StreamEvent};
+use crate::modules::ai::domain::{ChatRequest, ChatResponse, Message, MessageContent, Role, StreamEvent};
 use crate::modules::ai::error::AiError;
 use crate::modules::ai::ports::{LlmClient, ModelConfig};
 
@@ -105,9 +105,54 @@ impl AnthropicClient
 #[async_trait]
 impl LlmClient for AnthropicClient
 {
-    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, AiError>
+    async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, AiError>
     {
-        todo!("Implement chat")
+        let model = request.params.model.as_deref().unwrap_or(self.config.default_model());
+        let max_tokens = request.params.max_tokens.unwrap_or(self.config.default_max_tokens());
+        let temperature = request.params.temperature.unwrap_or(self.config.default_temperature());
+
+        let messages = self.convert_messages(&request.messages);
+        let _tools = self.convert_tools(&request.tools);
+
+        let mut msg_req = anthropic::types::MessagesRequest::default();
+        msg_req.model = model.to_string();
+        msg_req.messages = messages;
+        msg_req.max_tokens = max_tokens as usize;
+        msg_req.temperature = Some(temperature as f64);
+
+        let response = self.client.messages(msg_req)
+            .await
+            .map_err(|e| self.map_anthropic_error(e))?;
+
+        let content = if let Some(content_block) = response.content.first() {
+            match content_block {
+                anthropic::types::ContentBlock::Text { text } => {
+                    MessageContent::Text(text.clone())
+                }
+                _ => MessageContent::Text(String::new()),
+            }
+        } else {
+            MessageContent::Text(String::new())
+        };
+
+        let stop_reason = match response.stop_reason {
+            Some(anthropic::types::StopReason::EndTurn) => crate::modules::ai::domain::StopReason::EndOfTurn,
+            Some(anthropic::types::StopReason::MaxTokens) => crate::modules::ai::domain::StopReason::MaxTokens,
+            Some(anthropic::types::StopReason::StopSequence) => crate::modules::ai::domain::StopReason::EndOfTurn,
+            None => crate::modules::ai::domain::StopReason::EndOfTurn,
+        };
+
+        Ok(ChatResponse {
+            message: Message {
+                role: Role::Assistant,
+                content,
+            },
+            stop_reason,
+            usage: crate::modules::ai::domain::Usage {
+                input_tokens: response.usage.input_tokens as u32,
+                output_tokens: response.usage.output_tokens as u32,
+            },
+        })
     }
 
     async fn stream_chat(

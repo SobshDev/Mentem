@@ -61,6 +61,15 @@ impl TokenService for JwtTokenService
         let data = decode::<Claims>(token, &self.decoding_key, &self.validation)
             .map_err(|_| AuthError::InvalidCredentials)?;
 
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| AuthError::Internal(Box::new(e)))?
+            .as_secs() as i64;
+
+        if data.claims.exp < current_time {
+            return Err(AuthError::TokenExpired);
+        }
+
         let user_id =
             Uuid::parse_str(&data.claims.sub).map_err(|_| AuthError::InvalidCredentials)?;
 

@@ -52,7 +52,8 @@ pub async fn register(
     Json(req): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<UserResponse>), AuthError>
 {
-    let user = state.auth.register(&req.email, &req.password).await?;
+    let credentials = super::domain::Credentials::new(req.email, req.password)?;
+    let user = state.auth.register(credentials).await?;
     Ok((StatusCode::CREATED, Json(user.into())))
 }
 
@@ -61,7 +62,8 @@ pub async fn login(
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, AuthError>
 {
-    let token = state.auth.login(&req.email, &req.password).await?;
+    let credentials = super::domain::Credentials::new(req.email, req.password)?;
+    let token = state.auth.login(credentials).await?;
     Ok(Json(LoginResponse { token }))
 }
 

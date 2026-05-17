@@ -8,5 +8,5 @@ pub(crate) mod http_routes;
 mod ports;
 mod service;
 
-pub use domain::{TokenClaims, User};
+pub use domain::{Credentials, TokenClaims, User};
 pub use service::AuthService;

@@ -4,7 +4,9 @@ use futures::stream::BoxStream;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::modules::ai::domain::{ChatRequest, ChatResponse, Message, MessageContent, Role, StreamEvent};
+use crate::modules::ai::domain::{
+    ChatRequest, ChatResponse, Message, MessageContent, Role, StreamEvent,
+};
 use crate::modules::ai::error::AiError;
 use crate::modules::ai::ports::{LlmClient, ModelConfig};
 
@@ -107,9 +109,19 @@ impl LlmClient for AnthropicClient
 {
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, AiError>
     {
-        let model = request.params.model.as_deref().unwrap_or(self.config.default_model());
-        let max_tokens = request.params.max_tokens.unwrap_or(self.config.default_max_tokens());
-        let temperature = request.params.temperature.unwrap_or(self.config.default_temperature());
+        let model = request
+            .params
+            .model
+            .as_deref()
+            .unwrap_or(self.config.default_model());
+        let max_tokens = request
+            .params
+            .max_tokens
+            .unwrap_or(self.config.default_max_tokens());
+        let temperature = request
+            .params
+            .temperature
+            .unwrap_or(self.config.default_temperature());
 
         let messages = self.convert_messages(&request.messages);
         let _tools = self.convert_tools(&request.tools);
@@ -120,15 +132,15 @@ impl LlmClient for AnthropicClient
         msg_req.max_tokens = max_tokens as usize;
         msg_req.temperature = Some(temperature as f64);
 
-        let response = self.client.messages(msg_req)
+        let response = self
+            .client
+            .messages(msg_req)
             .await
             .map_err(|e| self.map_anthropic_error(e))?;
 
         let content = if let Some(content_block) = response.content.first() {
             match content_block {
-                anthropic::types::ContentBlock::Text { text } => {
-                    MessageContent::Text(text.clone())
-                }
+                anthropic::types::ContentBlock::Text { text } => MessageContent::Text(text.clone()),
                 _ => MessageContent::Text(String::new()),
             }
         } else {
@@ -136,9 +148,15 @@ impl LlmClient for AnthropicClient
         };
 
         let stop_reason = match response.stop_reason {
-            Some(anthropic::types::StopReason::EndTurn) => crate::modules::ai::domain::StopReason::EndOfTurn,
-            Some(anthropic::types::StopReason::MaxTokens) => crate::modules::ai::domain::StopReason::MaxTokens,
-            Some(anthropic::types::StopReason::StopSequence) => crate::modules::ai::domain::StopReason::EndOfTurn,
+            Some(anthropic::types::StopReason::EndTurn) => {
+                crate::modules::ai::domain::StopReason::EndOfTurn
+            }
+            Some(anthropic::types::StopReason::MaxTokens) => {
+                crate::modules::ai::domain::StopReason::MaxTokens
+            }
+            Some(anthropic::types::StopReason::StopSequence) => {
+                crate::modules::ai::domain::StopReason::EndOfTurn
+            }
             None => crate::modules::ai::domain::StopReason::EndOfTurn,
         };
 
@@ -160,9 +178,19 @@ impl LlmClient for AnthropicClient
         request: ChatRequest,
     ) -> Result<BoxStream<'static, Result<StreamEvent, AiError>>, AiError>
     {
-        let model = request.params.model.as_deref().unwrap_or(self.config.default_model());
-        let max_tokens = request.params.max_tokens.unwrap_or(self.config.default_max_tokens());
-        let temperature = request.params.temperature.unwrap_or(self.config.default_temperature());
+        let model = request
+            .params
+            .model
+            .as_deref()
+            .unwrap_or(self.config.default_model());
+        let max_tokens = request
+            .params
+            .max_tokens
+            .unwrap_or(self.config.default_max_tokens());
+        let temperature = request
+            .params
+            .temperature
+            .unwrap_or(self.config.default_temperature());
 
         let messages = self.convert_messages(&request.messages);
         let _tools = self.convert_tools(&request.tools);
@@ -174,7 +202,9 @@ impl LlmClient for AnthropicClient
         msg_req.temperature = Some(temperature as f64);
         msg_req.stream = true;
 
-        let stream = self.client.messages_stream(msg_req)
+        let stream = self
+            .client
+            .messages_stream(msg_req)
             .await
             .map_err(|e| self.map_anthropic_error(e))?;
 
@@ -182,27 +212,23 @@ impl LlmClient for AnthropicClient
 
         let boxed = Box::pin(stream.then(|event_result| async move {
             match event_result {
-                Ok(event) => {
-                    match event {
-                        anthropic::types::MessagesStreamEvent::ContentBlockDelta { delta, .. } => {
-                            match delta {
-                                anthropic::types::ContentBlockDelta::TextDelta { text } => {
-                                    Ok(StreamEvent::TextDelta(text))
-                                }
+                Ok(event) => match event {
+                    anthropic::types::MessagesStreamEvent::ContentBlockDelta { delta, .. } => {
+                        match delta {
+                            anthropic::types::ContentBlockDelta::TextDelta { text } => {
+                                Ok(StreamEvent::TextDelta(text))
                             }
                         }
-                        anthropic::types::MessagesStreamEvent::MessageStop => {
-                            Ok(StreamEvent::Done {
-                                stop_reason: crate::modules::ai::domain::StopReason::EndOfTurn,
-                                usage: crate::modules::ai::domain::Usage {
-                                    input_tokens: 0,
-                                    output_tokens: 0,
-                                },
-                            })
-                        }
-                        _ => Ok(StreamEvent::TextDelta(String::new())),
                     }
-                }
+                    anthropic::types::MessagesStreamEvent::MessageStop => Ok(StreamEvent::Done {
+                        stop_reason: crate::modules::ai::domain::StopReason::EndOfTurn,
+                        usage: crate::modules::ai::domain::Usage {
+                            input_tokens: 0,
+                            output_tokens: 0,
+                        },
+                    }),
+                    _ => Ok(StreamEvent::TextDelta(String::new())),
+                },
                 Err(e) => Err(AiError::Internal(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     e.to_string(),

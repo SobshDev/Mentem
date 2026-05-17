@@ -1,28 +1,33 @@
-use std::sync::Arc;
-use std::fmt;
+use anthropic::client::ClientBuilder;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use anthropic::client::ClientBuilder;
+use std::fmt;
+use std::sync::Arc;
 
 use crate::modules::ai::domain::{ChatRequest, ChatResponse, StreamEvent};
 use crate::modules::ai::error::AiError;
 use crate::modules::ai::ports::{LlmClient, ModelConfig};
 
-pub struct AnthropicClient {
+pub struct AnthropicClient
+{
     client: anthropic::client::Client,
     config: Arc<dyn ModelConfig>,
 }
 
-impl fmt::Debug for AnthropicClient {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Debug for AnthropicClient
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
         f.debug_struct("AnthropicClient")
             .field("config", &"<anthropic client>")
             .finish()
     }
 }
 
-impl AnthropicClient {
-    pub fn new(config: Arc<dyn ModelConfig>) -> Result<Self, String> {
+impl AnthropicClient
+{
+    pub fn new(config: Arc<dyn ModelConfig>) -> Result<Self, String>
+    {
         let api_key = std::env::var("ANTHROPIC_API_KEY")
             .map_err(|_| "ANTHROPIC_API_KEY environment variable not set".to_string())?;
 
@@ -34,71 +39,112 @@ impl AnthropicClient {
         Ok(Self { client, config })
     }
 
-    fn map_anthropic_error(&self, error: anthropic::error::AnthropicError) -> AiError {
+    fn map_anthropic_error(&self, error: anthropic::error::AnthropicError) -> AiError
+    {
         match error {
             anthropic::error::AnthropicError::ApiError(api_error) => {
                 match api_error.r#type.as_str() {
                     "insufficient_quota" => AiError::QuotaExceeded,
                     "rate_limit_error" | "overloaded_error" => AiError::ProviderRateLimited,
                     "authentication_error" | "unauthorized" => AiError::Unauthorized,
-                    "invalid_request_error" => {
-                        AiError::InvalidRequest(api_error.message)
-                    }
-                    _ => AiError::Internal(Box::new(
-                        std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("API error ({}): {}", api_error.r#type, api_error.message),
-                        )
-                    )),
+                    "invalid_request_error" => AiError::InvalidRequest(api_error.message),
+                    _ => AiError::Internal(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("API error ({}): {}", api_error.r#type, api_error.message),
+                    ))),
                 }
             }
-            anthropic::error::AnthropicError::InvalidArgument(msg) => {
-                AiError::InvalidRequest(msg)
-            }
-            err => AiError::Internal(Box::new(
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    err.to_string(),
-                )
-            )),
+            anthropic::error::AnthropicError::InvalidArgument(msg) => AiError::InvalidRequest(msg),
+            err => AiError::Internal(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                err.to_string(),
+            ))),
         }
+    }
+
+    fn convert_messages(
+        &self,
+        messages: &[crate::modules::ai::domain::Message],
+    ) -> Vec<anthropic::types::Message>
+    {
+        messages
+            .iter()
+            .map(|msg| {
+                let content = vec![match &msg.content {
+                    crate::modules::ai::domain::MessageContent::Text(text) => {
+                        anthropic::types::ContentBlock::Text { text: text.clone() }
+                    }
+                    _ => anthropic::types::ContentBlock::Text {
+                        text: String::new(),
+                    },
+                }];
+
+                anthropic::types::Message {
+                    role: match msg.role {
+                        crate::modules::ai::domain::Role::User => anthropic::types::Role::User,
+                        crate::modules::ai::domain::Role::Assistant => {
+                            anthropic::types::Role::Assistant
+                        }
+                        _ => anthropic::types::Role::User,
+                    },
+                    content,
+                }
+            })
+            .collect()
+    }
+
+    fn convert_tools(
+        &self,
+        _tools: &[crate::modules::ai::domain::ToolDefinition],
+    ) -> Vec<anthropic::types::Message>
+    {
+        todo!("Tool use not yet supported in anthropic v0.0.8")
     }
 }
 
 #[async_trait]
-impl LlmClient for AnthropicClient {
-    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, AiError> {
+impl LlmClient for AnthropicClient
+{
+    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, AiError>
+    {
         todo!("Implement chat")
     }
 
     async fn stream_chat(
         &self,
         _request: ChatRequest,
-    ) -> Result<BoxStream<'static, Result<StreamEvent, AiError>>, AiError> {
+    ) -> Result<BoxStream<'static, Result<StreamEvent, AiError>>, AiError>
+    {
         todo!("Implement stream_chat")
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod tests
+{
     use super::*;
 
     struct MockModelConfig;
 
-    impl crate::modules::ai::ports::ModelConfig for MockModelConfig {
-        fn default_model(&self) -> &str {
+    impl crate::modules::ai::ports::ModelConfig for MockModelConfig
+    {
+        fn default_model(&self) -> &str
+        {
             "claude-3-5-sonnet-20241022"
         }
-        fn default_max_tokens(&self) -> u32 {
+        fn default_max_tokens(&self) -> u32
+        {
             1024
         }
-        fn default_temperature(&self) -> f32 {
+        fn default_temperature(&self) -> f32
+        {
             0.7
         }
     }
 
     #[test]
-    fn test_new_requires_api_key() {
+    fn test_new_requires_api_key()
+    {
         // Temporarily unset the env var if it exists
         let old_key = std::env::var("ANTHROPIC_API_KEY").ok();
         unsafe {
@@ -121,7 +167,8 @@ mod tests {
     }
 
     #[test]
-    fn test_new_succeeds_with_api_key() {
+    fn test_new_succeeds_with_api_key()
+    {
         unsafe {
             std::env::set_var("ANTHROPIC_API_KEY", "test-key-12345");
         }

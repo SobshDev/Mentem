@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
-use super::domain::{NewUser, User, UserId};
+use super::domain::{NewUser, TokenClaims, User, UserId};
 use super::error::AuthError;
-use super::hasher::PasswordHasher;
-use super::repository::UserRepository;
-use super::token::{TokenClaims, TokenService};
+use super::ports::{PasswordHasher, TokenService, UserRepository};
 
 #[derive(Clone)]
 pub struct AuthService

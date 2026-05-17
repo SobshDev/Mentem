@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::UserRepository;
-use crate::modules::auth::domain::{NewUser, User, UserId};
-use crate::modules::auth::error::AuthError;
+use super::super::domain::{NewUser, User, UserId};
+use super::super::error::AuthError;
+use super::super::ports::UserRepository;
 
 pub struct PgUserRepository
 {

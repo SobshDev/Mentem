@@ -4,8 +4,8 @@ use argon2::{Algorithm, Argon2, Params, PasswordHasher as _, PasswordVerifier, V
 use async_trait::async_trait;
 use tokio::task;
 
-use super::PasswordHasher;
-use crate::modules::auth::error::AuthError;
+use super::super::error::AuthError;
+use super::super::ports::PasswordHasher;
 
 #[derive(Clone)]
 pub struct Argon2Hasher

@@ -16,3 +16,10 @@ pub struct NewUser
     pub email: String,
     pub password_hash: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct TokenClaims
+{
+    pub user_id: UserId,
+    pub expires_at: i64,
+}

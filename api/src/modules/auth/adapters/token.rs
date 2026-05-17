@@ -4,9 +4,9 @@ use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, deco
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{TokenClaims, TokenService};
-use crate::modules::auth::domain::UserId;
-use crate::modules::auth::error::AuthError;
+use super::super::domain::{TokenClaims, UserId};
+use super::super::error::AuthError;
+use super::super::ports::TokenService;
 
 const TTL: Duration = Duration::from_secs(60 * 60);
 

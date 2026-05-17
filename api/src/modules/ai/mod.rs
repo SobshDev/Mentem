@@ -1,5 +1,6 @@
 pub mod domain;
 
+mod adapters;
 mod error;
 mod ports;
 mod service;
